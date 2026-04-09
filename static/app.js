@@ -13,6 +13,8 @@ const chatHeader = document.getElementById('chatHeader');
 const messagesBox = document.getElementById('messagesBox');
 const messageInput = document.getElementById('messageInput');
 const sendBtn = document.getElementById('sendBtn');
+const photoInput = document.getElementById('photoInput');
+const sendPhotoBtn = document.getElementById('sendPhotoBtn');
 
 const storageKey = 'messenger-lite-session';
 
@@ -28,7 +30,7 @@ let state = {
 
 function escapeHtml(text) {
   const div = document.createElement('div');
-  div.innerText = text;
+  div.innerText = text ?? '';
   return div.innerHTML;
 }
 
@@ -160,6 +162,7 @@ async function logout() {
   chatHeader.textContent = 'Выбери пользователя или диалог';
   nicknameInput.value = '';
   passwordInput.value = '';
+  photoInput.value = '';
   showAuth();
 }
 
@@ -276,9 +279,17 @@ function appendMessage(message, scroll = true) {
 
   const el = document.createElement('div');
   el.className = 'message' + (isMine ? ' mine' : '');
+
+  let content = '';
+  if (message.kind === 'image' && message.image_url) {
+    content = `<img src="${message.image_url}" alt="photo" style="max-width: 260px; border-radius: 12px;" />`;
+  } else {
+    content = escapeHtml(message.text || '').replace(/\n/g, '<br>');
+  }
+
   el.innerHTML = `
     <div class="message-meta">${escapeHtml(message.sender_nickname)} · ${new Date(message.created_at).toLocaleString()}</div>
-    <div>${escapeHtml(message.text).replace(/\n/g, '<br>')}</div>
+    <div>${content}</div>
   `;
   messagesBox.appendChild(el);
 
@@ -309,6 +320,46 @@ async function sendMessage() {
   } catch (error) {
     alert(error.message);
   }
+}
+
+async function sendPhoto() {
+  if (!state.activeDialogId) {
+    alert('Сначала выбери диалог');
+    return;
+  }
+
+  const file = photoInput.files[0];
+  if (!file) {
+    alert('Сначала выбери фото');
+    return;
+  }
+
+  const formData = new FormData();
+  formData.append('photo', file);
+
+  const response = await fetch(`/api/dialogs/${state.activeDialogId}/photo`, {
+    method: 'POST',
+    headers: {
+      'X-Session-Token': state.sessionToken,
+    },
+    body: formData,
+  });
+
+  let data = null;
+  try {
+    data = await response.json();
+  } catch (_) {
+    data = null;
+  }
+
+  if (!response.ok) {
+    alert(data?.detail || 'Ошибка отправки фото');
+    return;
+  }
+
+  appendMessage(data);
+  photoInput.value = '';
+  await loadDialogs();
 }
 
 function connectWebSocket() {
@@ -365,6 +416,7 @@ registerBtn.addEventListener('click', registerUser);
 loginBtn.addEventListener('click', loginUser);
 logoutBtn.addEventListener('click', logout);
 sendBtn.addEventListener('click', sendMessage);
+sendPhotoBtn.addEventListener('click', sendPhoto);
 
 passwordInput.addEventListener('keydown', (event) => {
   if (event.key === 'Enter') {

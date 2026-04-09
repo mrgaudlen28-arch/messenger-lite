@@ -49,7 +49,11 @@
         <div id="messagesBox" class="messages"></div>
         <div class="composer">
           <textarea id="messageInput" rows="3" maxlength="2000" placeholder="Введите сообщение"></textarea>
-          <button id="sendBtn">Отправить</button>
+          <div class="composer-actions">
+            <input id="photoInput" type="file" accept="image/*" />
+            <button id="sendPhotoBtn" class="secondary-btn">Отправить фото</button>
+            <button id="sendBtn">Отправить текст</button>
+          </div>
         </div>
       </main>
     </section>
