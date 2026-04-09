@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Messenger Lite</title>
+  <link rel="stylesheet" href="/static/style.css" />
+</head>
+<body>
+  <div class="page">
+    <section id="authCard" class="card auth-card">
+      <h1>Messenger Lite</h1>
+      <p class="muted">Минимальный мессенджер с личными сообщениями и регистрацией по никнейму.</p>
+      <input id="nicknameInput" type="text" maxlength="30" placeholder="Введите никнейм" />
+      <button id="authBtn">Войти / зарегистрироваться</button>
+      <p id="authError" class="error-text"></p>
+    </section>
+
+    <section id="appShell" class="app-shell hidden">
+      <aside class="sidebar card">
+        <div class="sidebar-top">
+          <div>
+            <div class="label">Вы вошли как</div>
+            <div id="meLabel" class="me-label"></div>
+          </div>
+          <button id="logoutBtn" class="secondary-btn">Выйти</button>
+        </div>
+
+        <div class="panel">
+          <div class="panel-title">Пользователи</div>
+          <div id="usersList" class="list"></div>
+        </div>
+
+        <div class="panel">
+          <div class="panel-title">Диалоги</div>
+          <div id="dialogsList" class="list"></div>
+        </div>
+      </aside>
+
+      <main class="chat card">
+        <div id="chatHeader" class="chat-header">Выбери пользователя или диалог</div>
+        <div id="messagesBox" class="messages"></div>
+        <div class="composer">
+          <textarea id="messageInput" rows="3" maxlength="2000" placeholder="Введите сообщение"></textarea>
+          <button id="sendBtn">Отправить</button>
+        </div>
+      </main>
+    </section>
+  </div>
+
+  <script src="/static/app.js"></script>
+</body>
+</html>
