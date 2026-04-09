@@ -10,9 +10,16 @@
   <div class="page">
     <section id="authCard" class="card auth-card">
       <h1>Messenger Lite</h1>
-      <p class="muted">Минимальный мессенджер с личными сообщениями и регистрацией по никнейму.</p>
+      <p class="subtitle">Регистрация и вход по никнейму и паролю.</p>
+
       <input id="nicknameInput" type="text" maxlength="30" placeholder="Введите никнейм" />
-      <button id="authBtn">Войти / зарегистрироваться</button>
+      <input id="passwordInput" type="password" maxlength="128" placeholder="Введите пароль" />
+
+      <div class="auth-actions">
+        <button id="registerBtn">Зарегистрироваться</button>
+        <button id="loginBtn" class="secondary-btn">Войти</button>
+      </div>
+
       <p id="authError" class="error-text"></p>
     </section>
 

@@ -34,7 +34,8 @@ class Database:
                 CREATE TABLE IF NOT EXISTS users (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
                     nickname TEXT NOT NULL UNIQUE,
-                    session_token TEXT NOT NULL UNIQUE,
+                    password_hash TEXT NOT NULL,
+                    session_token TEXT UNIQUE,
                     created_at TEXT NOT NULL,
                     last_seen_at TEXT NOT NULL
                 );
@@ -66,33 +67,56 @@ class Database:
             )
             conn.commit()
 
-    def create_or_login_user(self, nickname: str, session_token: str) -> dict[str, Any]:
+    def create_user(self, nickname: str, password_hash: str, session_token: str) -> dict[str, Any]:
         now = utc_now()
         with _db_lock, self._connect() as conn:
             existing = conn.execute(
-                'SELECT * FROM users WHERE lower(nickname) = lower(?)',
+                'SELECT id FROM users WHERE lower(nickname) = lower(?)',
                 (nickname,),
             ).fetchone()
             if existing:
-                conn.execute(
-                    'UPDATE users SET session_token = ?, last_seen_at = ? WHERE id = ?',
-                    (session_token, now, existing['id']),
-                )
-                conn.commit()
-                updated = conn.execute('SELECT * FROM users WHERE id = ?', (existing['id'],)).fetchone()
-                return dict(updated)
+                raise ValueError('Nickname already exists')
 
             conn.execute(
-                'INSERT INTO users (nickname, session_token, created_at, last_seen_at) VALUES (?, ?, ?, ?)',
-                (nickname, session_token, now, now),
+                '''
+                INSERT INTO users (nickname, password_hash, session_token, created_at, last_seen_at)
+                VALUES (?, ?, ?, ?, ?)
+                ''',
+                (nickname, password_hash, session_token, now, now),
             )
             conn.commit()
             row = conn.execute('SELECT * FROM users WHERE session_token = ?', (session_token,)).fetchone()
             return dict(row)
 
+    def get_user_by_nickname(self, nickname: str) -> dict[str, Any] | None:
+        with _db_lock, self._connect() as conn:
+            row = conn.execute(
+                'SELECT * FROM users WHERE lower(nickname) = lower(?)',
+                (nickname,),
+            ).fetchone()
+            return dict(row) if row else None
+
+    def set_session_token(self, user_id: int, session_token: str) -> dict[str, Any]:
+        with _db_lock, self._connect() as conn:
+            conn.execute(
+                'UPDATE users SET session_token = ?, last_seen_at = ? WHERE id = ?',
+                (session_token, utc_now(), user_id),
+            )
+            conn.commit()
+            row = conn.execute('SELECT * FROM users WHERE id = ?', (user_id,)).fetchone()
+            return dict(row)
+
+    def clear_session_token(self, user_id: int) -> None:
+        with _db_lock, self._connect() as conn:
+            conn.execute('UPDATE users SET session_token = NULL WHERE id = ?', (user_id,))
+            conn.commit()
+
     def get_user_by_token(self, session_token: str) -> dict[str, Any] | None:
         with _db_lock, self._connect() as conn:
-            row = conn.execute('SELECT * FROM users WHERE session_token = ?', (session_token,)).fetchone()
+            row = conn.execute(
+                'SELECT * FROM users WHERE session_token = ?',
+                (session_token,),
+            ).fetchone()
             return dict(row) if row else None
 
     def get_user_by_id(self, user_id: int) -> dict[str, Any] | None:

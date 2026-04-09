@@ -1,7 +1,9 @@
 const authCard = document.getElementById('authCard');
 const appShell = document.getElementById('appShell');
 const nicknameInput = document.getElementById('nicknameInput');
-const authBtn = document.getElementById('authBtn');
+const passwordInput = document.getElementById('passwordInput');
+const registerBtn = document.getElementById('registerBtn');
+const loginBtn = document.getElementById('loginBtn');
 const authError = document.getElementById('authError');
 const meLabel = document.getElementById('meLabel');
 const logoutBtn = document.getElementById('logoutBtn');
@@ -64,12 +66,17 @@ function showApp() {
   appShell.classList.remove('hidden');
 }
 
-async function registerOrLogin() {
+async function registerUser() {
   const nickname = nicknameInput.value.trim();
+  const password = passwordInput.value.trim();
   authError.textContent = '';
 
   if (nickname.length < 2) {
     authError.textContent = 'Никнейм должен быть минимум 2 символа';
+    return;
+  }
+  if (password.length < 6) {
+    authError.textContent = 'Пароль должен быть минимум 6 символов';
     return;
   }
 
@@ -77,7 +84,7 @@ async function registerOrLogin() {
     const data = await api('/api/register', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ nickname }),
+      body: JSON.stringify({ nickname, password }),
     });
 
     state.sessionToken = data.session_token;
@@ -90,11 +97,52 @@ async function registerOrLogin() {
   }
 }
 
-function logout() {
+async function loginUser() {
+  const nickname = nicknameInput.value.trim();
+  const password = passwordInput.value.trim();
+  authError.textContent = '';
+
+  if (nickname.length < 2) {
+    authError.textContent = 'Введите никнейм';
+    return;
+  }
+  if (password.length < 6) {
+    authError.textContent = 'Введите пароль';
+    return;
+  }
+
+  try {
+    const data = await api('/api/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ nickname, password }),
+    });
+
+    state.sessionToken = data.session_token;
+    localStorage.setItem(storageKey, state.sessionToken);
+    state.me = data.user;
+
+    await bootstrapApp();
+  } catch (error) {
+    authError.textContent = error.message;
+  }
+}
+
+async function logout() {
+  try {
+    if (state.sessionToken) {
+      await api('/api/logout', {
+        method: 'POST',
+        headers: headers(),
+      });
+    }
+  } catch (_) {}
+
   if (state.ws) {
     state.ws.close();
     state.ws = null;
   }
+
   localStorage.removeItem(storageKey);
   state = {
     sessionToken: '',
@@ -105,10 +153,13 @@ function logout() {
     ws: null,
     renderedMessageIds: new Set(),
   };
+
   usersList.innerHTML = '';
   dialogsList.innerHTML = '';
   messagesBox.innerHTML = '';
   chatHeader.textContent = 'Выбери пользователя или диалог';
+  nicknameInput.value = '';
+  passwordInput.value = '';
   showAuth();
 }
 
@@ -122,7 +173,7 @@ async function checkSession() {
     state.me = await api('/api/me', { headers: headers() });
     await bootstrapApp();
   } catch (_) {
-    logout();
+    await logout();
   }
 }
 
@@ -310,13 +361,14 @@ function connectWebSocket() {
   };
 }
 
-authBtn.addEventListener('click', registerOrLogin);
+registerBtn.addEventListener('click', registerUser);
+loginBtn.addEventListener('click', loginUser);
 logoutBtn.addEventListener('click', logout);
 sendBtn.addEventListener('click', sendMessage);
 
-nicknameInput.addEventListener('keydown', (event) => {
+passwordInput.addEventListener('keydown', (event) => {
   if (event.key === 'Enter') {
-    registerOrLogin();
+    loginUser();
   }
 });
 

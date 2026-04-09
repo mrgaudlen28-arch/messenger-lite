@@ -10,6 +10,7 @@ from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
+from .auth_utils import hash_password, verify_password
 from .db import Database
 
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -65,6 +66,12 @@ manager = ConnectionManager()
 
 class RegisterPayload(BaseModel):
     nickname: str = Field(min_length=2, max_length=30)
+    password: str = Field(min_length=6, max_length=128)
+
+
+class LoginPayload(BaseModel):
+    nickname: str = Field(min_length=2, max_length=30)
+    password: str = Field(min_length=6, max_length=128)
 
 
 class DirectDialogPayload(BaseModel):
@@ -93,13 +100,21 @@ async def require_user(x_session_token: str | None = Header(default=None)) -> di
 @app.post('/api/register')
 async def register(payload: RegisterPayload) -> dict[str, Any]:
     nickname = payload.nickname.strip()
+    password = payload.password.strip()
+
     if len(nickname) < 2:
         raise HTTPException(status_code=400, detail='Nickname is too short')
     if any(ch in nickname for ch in '<>'):
         raise HTTPException(status_code=400, detail='Nickname contains invalid characters')
+    if len(password) < 6:
+        raise HTTPException(status_code=400, detail='Password must be at least 6 characters')
+
+    if db.get_user_by_nickname(nickname):
+        raise HTTPException(status_code=400, detail='Nickname already exists')
 
     session_token = secrets.token_urlsafe(32)
-    user = db.create_or_login_user(nickname, session_token)
+    user = db.create_user(nickname, hash_password(password), session_token)
+
     return {
         'user': {
             'id': user['id'],
@@ -108,6 +123,40 @@ async def register(payload: RegisterPayload) -> dict[str, Any]:
         },
         'session_token': user['session_token'],
     }
+
+
+@app.post('/api/login')
+async def login(payload: LoginPayload) -> dict[str, Any]:
+    nickname = payload.nickname.strip()
+    password = payload.password.strip()
+
+    user = db.get_user_by_nickname(nickname)
+    if not user:
+        raise HTTPException(status_code=401, detail='Invalid nickname or password')
+
+    if not verify_password(password, user['password_hash']):
+        raise HTTPException(status_code=401, detail='Invalid nickname or password')
+
+    session_token = secrets.token_urlsafe(32)
+    user = db.set_session_token(user['id'], session_token)
+
+    return {
+        'user': {
+            'id': user['id'],
+            'nickname': user['nickname'],
+            'created_at': user['created_at'],
+        },
+        'session_token': user['session_token'],
+    }
+
+
+@app.post('/api/logout')
+async def logout(x_session_token: str | None = Header(default=None)) -> dict[str, Any]:
+    if x_session_token:
+        user = db.get_user_by_token(x_session_token)
+        if user:
+            db.clear_session_token(user['id'])
+    return {'ok': True}
 
 
 @app.get('/api/me')
